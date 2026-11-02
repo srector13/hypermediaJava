@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html th:replace="~{layout :: page('Dashboard', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<body>
+<main class="max-w-7xl mx-auto px-4 py-6 flex flex-col gap-6">
+
+    <!-- ===== hero ===================================================================== -->
+    <section class="hero bg-base-100 rounded-box shadow-sm">
+        <div class="hero-content flex-col lg:flex-row lg:justify-between w-full py-10 gap-8">
+            <div class="max-w-2xl">
+                <div class="badge badge-outline badge-primary mb-3">Proof of concept</div>
+                <h1 class="text-4xl font-extrabold leading-tight">
+                    A reactive UI, rendered on the server.
+                    <span class="text-primary">No SPA required.</span>
+                </h1>
+                <p class="py-4 text-base-content/75">
+                    Spring Boot + Thymeleaf + htmx + Tailwind/DaisyUI. 50,000 rows, server-side pagination with
+                    <b>JDBC</b> and <b>JPA</b>, live search, inline editing, optimistic locking, infinite scroll and
+                    real-time multi-tab updates over Server-Sent Events, all with no client-side framework, no
+                    JSON API, and no JavaScript build.
+                </p>
+                <div class="flex flex-wrap gap-2">
+                    <a href="/jdbc/employees" class="btn btn-primary">Open the JDBC table</a>
+                    <a href="/jpa/employees" class="btn btn-secondary">Open the JPA table</a>
+                    <a href="/how-it-works" class="btn btn-ghost">How it works →</a>
+                </div>
+            </div>
+            <div class="stats stats-vertical sm:stats-horizontal lg:stats-vertical shadow bg-base-200 shrink-0">
+                <div class="stat">
+                    <div class="stat-title">Application JavaScript</div>
+                    <div class="stat-value text-success">0 files</div>
+                    <div class="stat-desc">4 inline <code>hx-on</code> one-liners</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-title">JSON endpoints</div>
+                    <div class="stat-value">0</div>
+                    <div class="stat-desc">every response is HTML</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== live stats: re-fetched whenever the server signals "stats-changed" ============ -->
+    <section th:fragment="stats" id="stats" hx-get="/dashboard/stats" hx-trigger="sse:stats-changed delay:300ms"
+             hx-swap="outerHTML" hx-push-url="false" class="grid gap-6 lg:grid-cols-3">
+        <div class="stats stats-vertical md:stats-horizontal shadow-sm bg-base-100 lg:col-span-3">
+            <div class="stat">
+                <div class="stat-figure text-primary text-3xl">👥</div>
+                <div class="stat-title">Headcount</div>
+                <div class="stat-value tabular-nums" th:text="${#numbers.formatInteger(stats.headcount, 1, 'COMMA')}">50,000</div>
+                <div class="stat-desc">across 8 departments</div>
+            </div>
+            <div class="stat">
+                <div class="stat-title">Active / Remote</div>
+                <div class="stat-value tabular-nums text-success"
+                     th:text="|${stats.percentOf(stats.active)}% / ${stats.percentOf(stats.remote)}%|">64% / 22%</div>
+                <div class="stat-desc" th:text="|${#numbers.formatInteger(stats.onLeave, 1, 'COMMA')} on leave|">1,000 on leave</div>
+            </div>
+            <div class="stat">
+                <div class="stat-title">Average salary</div>
+                <div class="stat-value tabular-nums" th:text="|$${#numbers.formatInteger(stats.averageSalary, 1, 'COMMA')}|">$95,000</div>
+                <div class="stat-desc">updates live as rows change</div>
+            </div>
+            <div class="stat">
+                <div class="stat-title">Annual payroll</div>
+                <div class="stat-value tabular-nums text-secondary"
+                     th:text="|$${#numbers.formatDecimal(stats.payrollBillions(), 1, 'COMMA', 3, 'POINT')}B|">$4.7B</div>
+                <div class="stat-desc">SUM(salary), one SQL query</div>
+            </div>
+        </div>
+
+        <div class="card bg-base-100 shadow-sm lg:col-span-3">
+            <div class="card-body p-5">
+                <h2 class="card-title text-base">Headcount by department</h2>
+                <div class="grid gap-x-8 gap-y-3 md:grid-cols-2">
+                    <a th:each="d : ${stats.departments}" class="group block"
+                       th:href="@{/jdbc/employees(department=${d.department})}">
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="font-medium group-hover:text-primary" th:text="${d.department.label()}">Engineering</span>
+                            <span class="opacity-70 tabular-nums"
+                                  th:text="|${#numbers.formatInteger(d.headcount, 1, 'COMMA')} · avg $${#numbers.formatInteger(d.averageSalary, 1, 'COMMA')}|">15,000</span>
+                        </div>
+                        <progress class="progress progress-primary w-full" th:value="${d.headcount}"
+                                  th:max="${stats.largestDepartment()}"></progress>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_26rem]">
+        <!-- ===== feature tour ============================================================ -->
+        <section class="grid gap-4 sm:grid-cols-2 content-start">
+            <a href="/jdbc/employees" class="card bg-base-100 shadow-sm hover:shadow-md transition-shadow">
+                <div class="card-body p-5">
+                    <h3 class="card-title text-base">Server-side data table</h3>
+                    <p class="text-sm opacity-75">Debounced search, filters, sortable headers, pagination and page size,
+                        all synced to the URL so Back/Forward and bookmarks just work.</p>
+                    <div class="card-actions"><code class="text-xs">hx-get · hx-push-url · hx-trigger="input changed delay:300ms"</code></div>
+                </div>
+            </a>
+            <a href="/jpa/employees" class="card bg-base-100 shadow-sm hover:shadow-md transition-shadow">
+                <div class="card-body p-5">
+                    <h3 class="card-title text-base">JDBC vs JPA, same UI</h3>
+                    <p class="text-sm opacity-75">One controller and one set of templates. A query inspector shows the
+                        SQL each technique runs: one round-trip with <code>COUNT(*) OVER()</code> vs. page + count.</p>
+                    <div class="card-actions"><code class="text-xs">JdbcClient · JpaSpecificationExecutor</code></div>
+                </div>
+            </a>
+            <a href="/jdbc/employees" class="card bg-base-100 shadow-sm hover:shadow-md transition-shadow">
+                <div class="card-body p-5">
+                    <h3 class="card-title text-base">Inline edit &amp; validation</h3>
+                    <p class="text-sm opacity-75">Rows swap into editors and back. Bean Validation errors render beside the
+                        field (HTTP 422), and concurrent edits are caught with optimistic locking (HTTP 409).</p>
+                    <div class="card-actions"><code class="text-xs">hx-put · hx-include="closest tr" · @Version</code></div>
+                </div>
+            </a>
+            <a href="/jdbc/feed" class="card bg-base-100 shadow-sm hover:shadow-md transition-shadow">
+                <div class="card-body p-5">
+                    <h3 class="card-title text-base">Infinite scroll, keyset paging</h3>
+                    <p class="text-sm opacity-75">The last row loads the next batch when it scrolls into view.
+                        Seek pagination keeps batch 500 as fast as batch 1.</p>
+                    <div class="card-actions"><code class="text-xs">hx-trigger="revealed" · Window&lt;T&gt;</code></div>
+                </div>
+            </a>
+            <div class="card bg-base-100 shadow-sm sm:col-span-2">
+                <div class="card-body p-5">
+                    <h3 class="card-title text-base">Real-time, multi-user</h3>
+                    <p class="text-sm opacity-75">Every tab holds one SSE connection. When a row changes, the server
+                        broadcasts <code>employee-{id}</code> and any tab showing that row re-fetches it. Start the
+                        simulator, then open a table page to watch rows update by themselves.</p>
+                    <div class="card-actions items-center">
+                        <!-- other dashboards receive the new button state over SSE -->
+                        <div sse-swap="simulator" hx-swap="innerHTML">
+                            <button th:replace="~{live/fragments :: simulator-toggle}"></button>
+                        </div>
+                        <a href="/jdbc/employees" class="btn btn-sm btn-ghost">Watch it on the table →</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== activity feed: HTML pushed by the server, prepended by htmx ============== -->
+        <section class="card bg-base-100 shadow-sm">
+            <div class="card-body p-5">
+                <div class="flex items-center justify-between">
+                    <h2 class="card-title text-base">Live activity</h2>
+                    <span class="badge badge-ghost badge-sm gap-1"><span class="status status-success animate-pulse"></span>SSE</span>
+                </div>
+                <ul id="activity" sse-swap="activity" hx-swap="afterbegin" class="divide-y divide-base-200">
+                    <th:block th:each="a : ${activity}"><li th:replace="~{live/fragments :: activity-item}"></li></th:block>
+                    <li class="placeholder py-6 text-sm opacity-60 text-center">
+                        Nothing yet. Edit a row, add an employee, or start the simulator.
+                    </li>
+                </ul>
+            </div>
+        </section>
+    </div>
+</main>
+</body>
+</html>

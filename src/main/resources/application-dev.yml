@@ -1,0 +1,15 @@
+# Fast inner loop:  ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev   (+ `npm run watch:css` in another terminal)
+# Templates are read straight from src/ so a browser refresh shows your edit, no rebuild needed.
+spring:
+  thymeleaf:
+    prefix: file:src/main/resources/templates/
+    cache: false
+  web:
+    resources:
+      static-locations: file:target/classes/static/, classpath:/static/
+      cache:
+        period: 0
+
+logging:
+  level:
+    dev.hypermediajava: DEBUG

@@ -1,0 +1,14 @@
+{
+  "name": "hypermedia-java-styles",
+  "private": true,
+  "description": "Tailwind + DaisyUI stylesheet build. This is the ONLY frontend tooling in the project — there is no JavaScript bundle.",
+  "scripts": {
+    "build:css": "tailwindcss -i src/main/frontend/app.css -o target/classes/static/css/app.css --minify 2>&1",
+    "watch:css": "tailwindcss -i src/main/frontend/app.css -o target/classes/static/css/app.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "4.3.3",
+    "daisyui": "5.7.50",
+    "tailwindcss": "4.3.3"
+  }
+}

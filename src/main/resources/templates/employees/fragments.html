@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<!--/*
+  Every piece of the data table that the server can re-render on its own.
+  Controllers return these by name, e.g. "employees/fragments :: row".
+*/-->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!-- =================================================================== table (inner content) -->
+<th:block th:fragment="table">
+    <!-- current sort travels with the filter form (form="filters"), so searching keeps your sort -->
+    <input type="hidden" name="sort" form="filters" th:value="${page.query.sort}">
+    <input type="hidden" name="dir" form="filters" th:value="${page.query.dir}">
+    <input type="hidden" id="current-page" name="page" th:value="${page.page}">
+
+    <!-- defaults inherited by sort headers and pager buttons below -->
+    <div hx-target="#table-container" hx-swap="innerHTML" hx-push-url="true"
+         hx-indicator="#table-container, #global-progress">
+
+        <div class="overflow-x-auto rounded-box border border-base-300">
+            <table class="table table-sm table-pin-rows data-table">
+                <thead>
+                <tr class="bg-base-200">
+                    <th class="w-8">
+                        <!-- one of the three lines of JavaScript in the whole app -->
+                        <input type="checkbox" class="checkbox checkbox-xs" aria-label="Select all rows on this page"
+                               hx-on:change="document.querySelectorAll('#table-container [name=ids]').forEach(c => c.checked = this.checked)">
+                    </th>
+                    <th th:replace="~{employees/fragments :: sort-header('name', 'Employee', '')}"></th>
+                    <th th:replace="~{employees/fragments :: sort-header('department', 'Department', 'hidden sm:table-cell')}"></th>
+                    <th th:replace="~{employees/fragments :: sort-header('title', 'Title', 'hidden md:table-cell')}"></th>
+                    <th th:replace="~{employees/fragments :: sort-header('location', 'Location', 'hidden 2xl:table-cell')}"></th>
+                    <th th:replace="~{employees/fragments :: sort-header('salary', 'Salary', 'text-right')}"></th>
+                    <th th:replace="~{employees/fragments :: sort-header('hired', 'Hired', 'hidden lg:table-cell')}"></th>
+                    <th th:replace="~{employees/fragments :: sort-header('status', 'Status', '')}"></th>
+                    <th class="w-20"><span class="sr-only">Actions</span></th>
+                </tr>
+                </thead>
+                <tbody>
+                <th:block th:each="e : ${page.rows}">
+                    <tr th:replace="~{employees/fragments :: row}"></tr>
+                </th:block>
+                <tr th:if="${page.empty}">
+                    <td colspan="9" class="py-16 text-center">
+                        <div class="text-4xl mb-2">🔍</div>
+                        <div class="font-semibold">No employees match these filters</div>
+                        <a class="link link-primary text-sm" th:href="@{/{e}/employees(e=${engine.path()})}" hx-target="body"
+                           hx-swap="innerHTML" hx-push-url="true">Clear all filters</a>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- pagination -->
+        <nav class="pager flex flex-wrap items-center justify-between gap-3 mt-3" aria-label="Pagination">
+            <div class="text-sm text-base-content/70">
+                <span th:if="${!page.empty}">
+                    Showing <b th:text="|${#numbers.formatInteger(page.from, 1, 'COMMA')}–${#numbers.formatInteger(page.to, 1, 'COMMA')}|">1–25</b>
+                    of <b th:text="${#numbers.formatInteger(page.total, 1, 'COMMA')}">50,000</b>
+                </span>
+                <span th:if="${page.query.hasFilters()}" class="badge badge-ghost badge-sm ml-1">filtered</span>
+            </div>
+            <div class="join">
+                <button class="join-item btn btn-sm" th:disabled="${!page.hasPrevious()}"
+                        th:hx-get="${page.pageUrl(0)}" aria-label="First page">«</button>
+                <!-- ← and → work anywhere on the page, except while typing in a field -->
+                <button class="join-item btn btn-sm" th:disabled="${!page.hasPrevious()}"
+                        th:hx-get="${page.pageUrl(page.page - 1)}" aria-label="Previous page"
+                        hx-trigger="click, keyup[key=='ArrowLeft' && !event.target.closest('input,select,textarea')] from:body">‹</button>
+                <th:block th:each="n : ${page.pageNumbers()}">
+                    <button th:if="${n == -1}" class="join-item btn btn-sm btn-disabled hidden sm:inline-flex" tabindex="-1">…</button>
+                    <button th:if="${n != -1}" class="join-item btn btn-sm tabular-nums"
+                            th:classappend="${n - 1 == page.page} ? 'btn-primary' : 'hidden sm:inline-flex'"
+                            th:attr="aria-current=${n - 1 == page.page} ? 'page' : null"
+                            th:hx-get="${page.pageUrl(n - 1)}"
+                            th:text="${#numbers.formatInteger(n, 1, 'COMMA')}">1</button>
+                </th:block>
+                <button class="join-item btn btn-sm" th:disabled="${!page.hasNext()}"
+                        th:hx-get="${page.pageUrl(page.page + 1)}" aria-label="Next page"
+                        hx-trigger="click, keyup[key=='ArrowRight' && !event.target.closest('input,select,textarea')] from:body">›</button>
+                <button class="join-item btn btn-sm" th:disabled="${!page.hasNext()}"
+                        th:hx-get="${page.pageUrl(page.totalPages - 1)}" aria-label="Last page">»</button>
+            </div>
+        </nav>
+    </div>
+
+    <div class="htmx-indicator absolute inset-0 grid place-items-center pointer-events-none">
+        <span class="loading loading-spinner loading-lg text-primary"></span>
+    </div>
+</th:block>
+
+<!-- =================================================================== sortable column header -->
+<th th:fragment="sort-header(col, label, extra)" th:class="${extra}" th:attr="aria-sort=${page.ariaSort(col)}">
+    <button type="button" class="inline-flex items-center gap-1 uppercase tracking-wide text-xs font-semibold hover:text-primary"
+            th:classappend="${#strings.contains(extra, 'text-right')} ? 'flex-row-reverse'"
+            th:hx-get="${page.sortUrl(col)}">
+        <span th:text="${label}">Name</span>
+        <span class="sort-icon"
+              th:text="${page.query.sort == col} ? (${page.query.descending()} ? '▼' : '▲') : '↕'">↕</span>
+    </button>
+</th>
+
+<!-- =================================================================== one read-only row -->
+<!--/* The row listens for "sse:employee-{id}". When anyone changes this employee, the server sends that
+       event and the row re-fetches ITSELF through this page's engine. No client-side store to sync. */-->
+<tr th:fragment="row" th:id="|emp-${e.id}|" th:classappend="${flash} ? 'row-flash'" class="hover:bg-base-200/50"
+    th:hx-get="|/${engine.path()}/employees/${e.id}/row|" th:hx-trigger="|sse:employee-${e.id}|"
+    hx-target="this" hx-swap="outerHTML" hx-push-url="false" hx-indicator="#global-progress">
+    <td><input type="checkbox" name="ids" th:value="${e.id}" class="checkbox checkbox-xs"
+               th:attr="aria-label=|Select ${e.fullName()}|"></td>
+    <td>
+        <div class="flex items-center gap-3 min-w-48">
+            <div class="avatar avatar-placeholder">
+                <div class="bg-neutral text-neutral-content w-8 rounded-full">
+                    <span class="text-xs" th:text="${e.initials()}">AB</span>
+                </div>
+            </div>
+            <div class="leading-tight">
+                <div class="font-medium" th:text="${e.fullName()}">Ada Lovelace</div>
+                <div class="text-xs opacity-60" th:text="${e.email}">ada@acme.test</div>
+            </div>
+        </div>
+    </td>
+    <td class="hidden sm:table-cell"><span class="badge badge-sm whitespace-nowrap" th:classappend="${e.department.badge()}"
+              th:text="${e.department.label()}">Engineering</span></td>
+    <td class="hidden md:table-cell" th:text="${e.title}">Engineer</td>
+    <td class="hidden 2xl:table-cell whitespace-nowrap" th:text="${e.location}">Berlin</td>
+    <td class="text-right tabular-nums font-medium"
+        th:text="|$${#numbers.formatDecimal(e.salary, 1, 'COMMA', 0, 'POINT')}|">$100,000</td>
+    <td class="hidden lg:table-cell tabular-nums whitespace-nowrap"
+        th:text="${#temporals.format(e.hireDate, 'MMM d, yyyy')}">Jan 1, 2020</td>
+    <td><span class="badge badge-sm badge-outline whitespace-nowrap" th:classappend="${e.status.badge()}"
+              th:text="${e.status.label()}">Active</span></td>
+    <td class="text-right whitespace-nowrap">
+        <button type="button" class="btn btn-ghost btn-xs btn-square" title="Edit inline"
+                th:attr="aria-label=|Edit ${e.fullName()}|"
+                th:hx-get="|/${engine.path()}/employees/${e.id}/edit|">✎</button>
+        <button type="button" class="btn btn-ghost btn-xs btn-square text-error" title="Delete"
+                th:attr="aria-label=|Delete ${e.fullName()}|,hx-confirm=|Delete ${e.fullName()}?|"
+                th:hx-delete="|/${engine.path()}/employees/${e.id}|"
+                hx-swap="outerHTML swap:400ms">🗑</button>
+    </td>
+</tr>
+
+<!-- =================================================================== one row in edit mode -->
+<tr th:fragment="edit-row" th:id="|emp-${e.id}|" class="editing bg-base-200/70 align-top" th:object="${form}"
+    hx-target="this" hx-swap="outerHTML" hx-push-url="false" hx-indicator="#global-progress">
+    <td></td>
+    <td>
+        <div class="flex flex-col gap-1 min-w-44">
+            <div class="flex gap-1">
+                <input class="input input-xs w-full" th:field="*{firstName}" aria-label="First name"
+                       th:classappend="${#fields.hasErrors('firstName')} ? 'input-error'" autofocus>
+                <input class="input input-xs w-full" th:field="*{lastName}" aria-label="Last name"
+                       th:classappend="${#fields.hasErrors('lastName')} ? 'input-error'">
+            </div>
+            <input class="input input-xs w-full" type="email" th:field="*{email}" aria-label="Email"
+                   th:classappend="${#fields.hasErrors('email')} ? 'input-error'">
+            <div th:if="${conflict != null}" role="alert" class="alert alert-warning alert-soft p-2 text-xs">
+                <span>
+                    <b>Someone else just changed this row</b> (salary now
+                    <span th:text="|$${#numbers.formatDecimal(conflict.salary, 1, 'COMMA', 0, 'POINT')}|"></span>,
+                    title <span th:text="|&quot;${conflict.title}&quot;|"></span>).
+                    Save again to overwrite, or Cancel to see theirs.
+                </span>
+            </div>
+            <p class="text-error text-xs" th:if="${#fields.hasAnyErrors()}">
+                <span th:each="err : ${#fields.detailedErrors()}" class="block" th:text="|${err.fieldName}: ${err.message}|"></span>
+            </p>
+        </div>
+    </td>
+    <td class="hidden sm:table-cell">
+        <select class="select select-xs w-28" th:field="*{department}" aria-label="Department">
+            <option th:each="d : ${departments}" th:value="${d}" th:text="${d.label()}"></option>
+        </select>
+    </td>
+    <td class="hidden md:table-cell">
+        <input class="input input-xs w-full min-w-28" th:field="*{title}" aria-label="Title"
+               th:classappend="${#fields.hasErrors('title')} ? 'input-error'">
+    </td>
+    <td class="hidden 2xl:table-cell">
+        <input class="input input-xs w-full min-w-28" th:field="*{location}" aria-label="Location"
+               th:classappend="${#fields.hasErrors('location')} ? 'input-error'">
+    </td>
+    <td>
+        <input class="input input-xs w-20 text-right" type="number" step="100" th:field="*{salary}" aria-label="Salary"
+               th:classappend="${#fields.hasErrors('salary')} ? 'input-error'">
+    </td>
+    <td class="hidden lg:table-cell">
+        <input class="input input-xs w-28" type="date" th:field="*{hireDate}" aria-label="Hire date"
+               th:classappend="${#fields.hasErrors('hireDate')} ? 'input-error'">
+    </td>
+    <td>
+        <select class="select select-xs w-24" th:field="*{status}" aria-label="Status">
+            <option th:each="s : ${statuses}" th:value="${s}" th:text="${s.label()}"></option>
+        </select>
+        <!-- optimistic locking: the version you started from (or the latest, after a conflict) -->
+        <input type="hidden" name="version" th:value="${conflict != null ? conflict.version : form.version}">
+    </td>
+    <td class="text-right whitespace-nowrap">
+        <div class="join join-vertical">
+                <button type="button" class="btn btn-primary btn-xs join-item"
+                        th:hx-put="|/${engine.path()}/employees/${e.id}|" hx-include="closest tr"
+                        hx-trigger="click, keyup[key=='Enter'] from:closest tr">Save</button>
+                <button type="button" class="btn btn-ghost btn-xs join-item"
+                        th:hx-get="|/${engine.path()}/employees/${e.id}/row|"
+                        hx-trigger="click, keyup[key=='Escape'] from:closest tr">Cancel</button>
+        </div>
+    </td>
+</tr>
+
+<!-- =================================================================== create modal -->
+<div th:fragment="create-modal" class="modal modal-open" role="dialog" aria-modal="true" aria-labelledby="new-title"
+     hx-on:keyup="event.key === 'Escape' && this.remove()">
+    <div class="modal-box max-w-2xl">
+        <h3 id="new-title" class="text-lg font-bold">New employee</h3>
+        <p class="text-sm opacity-70 mb-4">Saved via
+            <span class="badge badge-sm" th:text="${engine.label()}">JDBC</span> · validated on the server with Bean Validation.</p>
+
+        <form th:object="${form}" th:hx-post="|/${engine.path()}/employees|"
+              hx-target="#modal" hx-swap="innerHTML" hx-push-url="false" hx-indicator="#global-progress"
+              class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+
+            <fieldset class="fieldset">
+                <legend class="fieldset-legend">First name</legend>
+                <input class="input w-full" th:field="*{firstName}" autofocus
+                       th:classappend="${#fields.hasErrors('firstName')} ? 'input-error'">
+                <p class="label text-error" th:errors="*{firstName}"></p>
+            </fieldset>
+            <fieldset class="fieldset">
+                <legend class="fieldset-legend">Last name</legend>
+                <input class="input w-full" th:field="*{lastName}"
+                       th:classappend="${#fields.hasErrors('lastName')} ? 'input-error'">
+                <p class="label text-error" th:errors="*{lastName}"></p>
+            </fieldset>
+
+            <fieldset class="fieldset sm:col-span-2">
+                <legend class="fieldset-legend">Email</legend>
+                <!-- validated against the database while you type -->
+                <input class="input w-full" type="email" th:field="*{email}" autocomplete="off"
+                       th:classappend="${#fields.hasErrors('email')} ? 'input-error'"
+                       th:hx-get="|/${engine.path()}/employees/validate/email|"
+                       hx-trigger="input changed delay:400ms" hx-target="#email-feedback" hx-swap="outerHTML"
+                       hx-sync="this:replace">
+                <p th:if="${#fields.hasErrors('email')}" id="email-feedback" class="label text-error" th:errors="*{email}"></p>
+                <p th:unless="${#fields.hasErrors('email')}" id="email-feedback" class="label">Must be unique.</p>
+            </fieldset>
+
+            <fieldset class="fieldset">
+                <legend class="fieldset-legend">Department</legend>
+                <select class="select w-full" th:field="*{department}">
+                    <option th:each="d : ${departments}" th:value="${d}" th:text="${d.label()}"></option>
+                </select>
+            </fieldset>
+            <fieldset class="fieldset">
+                <legend class="fieldset-legend">Status</legend>
+                <select class="select w-full" th:field="*{status}">
+                    <option th:each="s : ${statuses}" th:value="${s}" th:text="${s.label()}"></option>
+                </select>
+            </fieldset>
+
+            <fieldset class="fieldset">
+                <legend class="fieldset-legend">Title</legend>
+                <input class="input w-full" th:field="*{title}" placeholder="Software Engineer"
+                       th:classappend="${#fields.hasErrors('title')} ? 'input-error'">
+                <p class="label text-error" th:errors="*{title}"></p>
+            </fieldset>
+            <fieldset class="fieldset">
+                <legend class="fieldset-legend">Location</legend>
+                <input class="input w-full" th:field="*{location}" placeholder="Berlin"
+                       th:classappend="${#fields.hasErrors('location')} ? 'input-error'">
+                <p class="label text-error" th:errors="*{location}"></p>
+            </fieldset>
+
+            <fieldset class="fieldset">
+                <legend class="fieldset-legend">Salary (USD)</legend>
+                <input class="input w-full" type="number" step="100" th:field="*{salary}"
+                       th:classappend="${#fields.hasErrors('salary')} ? 'input-error'">
+                <p class="label text-error" th:errors="*{salary}"></p>
+            </fieldset>
+            <fieldset class="fieldset">
+                <legend class="fieldset-legend">Hire date</legend>
+                <input class="input w-full" type="date" th:field="*{hireDate}"
+                       th:classappend="${#fields.hasErrors('hireDate')} ? 'input-error'">
+                <p class="label text-error" th:errors="*{hireDate}"></p>
+            </fieldset>
+
+            <div class="modal-action sm:col-span-2">
+                <button type="button" class="btn btn-ghost" hx-on:click="this.closest('.modal').remove()">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <span class="loading loading-spinner loading-xs htmx-indicator"></span> Create
+                </button>
+            </div>
+        </form>
+    </div>
+    <div class="modal-backdrop bg-black/40" hx-on:click="this.closest('.modal').remove()"></div>
+</div>
+
+<!-- =================================================================== inline email check -->
+<p th:fragment="email-feedback" id="email-feedback" class="label"
+   th:classappend="${message == null} ? '' : (${ok} ? 'text-success' : 'text-error')"
+   th:text="${message != null} ? (${ok} ? '✓ ' : '✗ ') + ${message} : 'Must be unique.'">Must be unique.</p>
+
+<!-- =================================================================== query inspector -->
+<section th:fragment="inspector(oob)" id="inspector" class="card bg-base-100 shadow-sm"
+         th:attr="hx-swap-oob=${oob} ? 'true' : null">
+    <div class="card-body p-4 gap-3">
+        <div class="flex items-center justify-between gap-2">
+            <h2 class="card-title text-base">Query inspector</h2>
+            <span class="badge" th:classappend="${sql.engine.name() == 'JDBC'} ? 'badge-primary' : 'badge-secondary'"
+                  th:text="${sql.engine.label()}">JDBC</span>
+        </div>
+        <div class="stats stats-horizontal bg-base-200 text-center">
+            <div class="stat px-3 py-2">
+                <div class="stat-title text-xs">Operation</div>
+                <div class="stat-value text-base" th:text="${sql.operation}">page</div>
+            </div>
+            <div class="stat px-3 py-2">
+                <div class="stat-title text-xs">Round trips</div>
+                <div class="stat-value text-base" th:text="${sql.roundTrips()}">1</div>
+            </div>
+            <div class="stat px-3 py-2">
+                <div class="stat-title text-xs">Time</div>
+                <div class="stat-value text-base" th:text="${sql.elapsed()}">2 ms</div>
+            </div>
+        </div>
+        <p class="text-xs text-base-content/70"
+           th:text="${#strings.startsWith(sql.operation, 'scroll')} ? ${sql.engine.scrollNote()} : ${sql.engine.pagingNote()}">note</p>
+        <div th:each="stmt, it : ${sql.statements}" class="bg-base-200 rounded-box p-3">
+            <div class="text-[0.65rem] uppercase tracking-wide opacity-50 mb-1" th:text="|Statement ${it.count}|">Statement 1</div>
+            <pre class="sql-block font-mono"><code th:text="${stmt}">SELECT …</code></pre>
+        </div>
+        <p th:if="${sql.statements.empty}" class="text-xs opacity-60">No SQL captured.</p>
+    </div>
+</section>
+
+<template th:fragment="inspector-oob">
+    <section th:replace="~{employees/fragments :: inspector(true)}"></section>
+</template>
+
+<!-- =================================================================== nothing (deleted row) -->
+<th:block th:fragment="nothing"></th:block>
+
+</body>
+</html>

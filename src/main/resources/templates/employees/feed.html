@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html th:replace="~{layout :: page(|Infinite scroll · ${engine.label()}|, ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<body>
+<main class="max-w-7xl mx-auto px-4 py-6">
+    <div class="flex flex-wrap items-end justify-between gap-4 mb-5">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center gap-3">
+                Infinite scroll
+                <span class="badge badge-lg" th:classappend="${engine.name() == 'JDBC'} ? 'badge-primary' : 'badge-secondary'"
+                      th:text="${engine.label()}">JDBC</span>
+            </h1>
+            <p class="text-base-content/70 mt-1 max-w-3xl" th:text="${engine.scrollNote()}">note</p>
+        </div>
+        <div role="tablist" class="tabs tabs-box tabs-sm">
+            <a role="tab" class="tab" th:each="eng : ${T(dev.hypermediajava.employee.Engine).values()}"
+               th:href="@{/{e}/feed(e=${eng.path()},q=${feed.q != '' ? feed.q : null})}" th:text="${eng.label()}"
+               th:classappend="${eng == engine} ? 'tab-active'">JDBC</a>
+        </div>
+    </div>
+
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <section class="card bg-base-100 shadow-sm min-w-0">
+            <div class="card-body p-4 gap-4">
+                <div class="flex flex-wrap items-center gap-3">
+                    <label class="input input-sm grow max-w-md">
+                        <span class="opacity-50">⌕</span>
+                        <input type="search" name="q" th:value="${feed.q}" autocomplete="off" aria-label="Search"
+                               placeholder="Filter the feed…"
+                               th:hx-get="@{/{e}/feed(e=${engine.path()})}"
+                               hx-trigger="input changed delay:300ms, search"
+                               hx-target="#feed-list" hx-swap="innerHTML" hx-push-url="true" hx-sync="this:replace">
+                    </label>
+                    <div class="text-sm opacity-70">
+                        Loaded <b id="feed-count" th:text="${feed.loadedSoFar()}">30</b> rows · ordered by last name, id
+                    </div>
+                </div>
+
+                <div id="feed-list" class="overflow-x-auto rounded-box border border-base-300" th:insert="~{employees/feed :: list}"></div>
+            </div>
+        </section>
+
+        <aside class="flex flex-col gap-6 min-w-0">
+            <div class="xl:sticky xl:top-20" th:insert="~{employees/fragments :: inspector(false)}"></div>
+        </aside>
+    </div>
+</main>
+
+<!-- =================================================================== whole list (initial / search) -->
+<th:block th:fragment="list">
+    <table class="table table-sm table-pin-rows">
+        <thead>
+        <tr class="bg-base-200">
+            <th>Employee</th>
+            <th>Department</th>
+            <th class="hidden md:table-cell">Title</th>
+            <th class="hidden lg:table-cell">Location</th>
+            <th class="text-right">Salary</th>
+        </tr>
+        </thead>
+        <tbody th:insert="~{employees/feed :: rows}"></tbody>
+    </table>
+</th:block>
+
+<!-- =================================================================== one batch of rows -->
+<!--/* Each batch ends with a "loading" row carrying hx-trigger="revealed": when it scrolls into view it
+       fetches the next batch (keyset cursor in the URL) and replaces itself with it (hx-swap="outerHTML").
+       The new batch ends with its own loading row, and so on. */-->
+<th:block th:fragment="rows">
+    <tr th:if="${feed.batch > 1 && after != null}" class="bg-base-200/60">
+        <td colspan="5" class="text-xs py-1 opacity-70">
+            Batch <b th:text="${feed.batch}">2</b> — seek after
+            <code th:text="|(last_name, id) > ('${after.lastName}', ${after.id})|"></code>
+        </td>
+    </tr>
+    <tr th:each="e : ${feed.rows}" class="hover:bg-base-200/50">
+        <td>
+            <div class="leading-tight">
+                <div class="font-medium" th:text="${e.lastName + ', ' + e.firstName}">Lovelace, Ada</div>
+                <div class="text-xs opacity-60" th:text="|#${e.id} · ${e.email}|">#1 · ada@acme.test</div>
+            </div>
+        </td>
+        <td><span class="badge badge-sm whitespace-nowrap" th:classappend="${e.department.badge()}"
+                  th:text="${e.department.label()}">Engineering</span></td>
+        <td class="hidden md:table-cell" th:text="${e.title}">Engineer</td>
+        <td class="hidden lg:table-cell" th:text="${e.location}">Berlin</td>
+        <td class="text-right tabular-nums" th:text="|$${#numbers.formatDecimal(e.salary, 1, 'COMMA', 0, 'POINT')}|">$1</td>
+    </tr>
+    <tr th:if="${feed.hasMore()}" th:hx-get="${feed.nextUrl()}" hx-trigger="revealed" hx-swap="outerHTML">
+        <td colspan="5" class="text-center py-3"><span class="loading loading-dots loading-sm opacity-50"></span></td>
+    </tr>
+    <tr th:unless="${feed.hasMore()}">
+        <td colspan="5" class="text-center py-6 text-sm opacity-70">
+            <span th:if="${feed.loadedSoFar() == 0}">No matches.</span>
+            <span th:unless="${feed.loadedSoFar() == 0}">🎉 End of the list.</span>
+        </td>
+    </tr>
+    <template>
+        <b id="feed-count" hx-swap-oob="true" th:text="${#numbers.formatInteger(feed.loadedSoFar(), 1, 'COMMA')}">30</b>
+    </template>
+</th:block>
+</body>
+</html>

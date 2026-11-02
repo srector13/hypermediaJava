@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html th:replace="~{layout :: page('How it works', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<body>
+<main class="max-w-6xl mx-auto px-4 py-8 flex flex-col gap-8">
+
+    <header class="max-w-3xl">
+        <h1 class="text-4xl font-extrabold">How it works</h1>
+        <p class="mt-3 text-base-content/75 text-lg">
+            The browser asks for HTML, the server sends HTML. htmx adds a few attributes that let
+            <em>any</em> element make a request and swap the response into the page. Everything a
+            Vue/React SPA would keep in a client-side store stays on the server, in the URL, or in the DOM.
+        </p>
+    </header>
+
+    <!-- ===== request lifecycle ========================================================= -->
+    <section class="card bg-base-100 shadow-sm">
+        <div class="card-body">
+            <h2 class="card-title">One interaction, end to end: typing in the search box</h2>
+            <ul class="steps steps-vertical lg:steps-horizontal mt-2">
+                <li class="step step-primary text-sm">You type; htmx waits 300&nbsp;ms of quiet<br><code class="text-xs">input changed delay:300ms</code></li>
+                <li class="step step-primary text-sm">GET /jdbc/employees?q=ana&amp;sort=…<br><code class="text-xs">HX-Request: true</code></li>
+                <li class="step step-primary text-sm">Controller runs JDBC/JPA query<br><code class="text-xs">store.search(query)</code></li>
+                <li class="step step-primary text-sm">Thymeleaf renders the table fragment + inspector (OOB)<br><code class="text-xs">FragmentsRendering</code></li>
+                <li class="step step-primary text-sm">htmx swaps it in and updates the URL<br><code class="text-xs">hx-push-url="true"</code></li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- ===== feature map ============================================================== -->
+    <section class="card bg-base-100 shadow-sm">
+        <div class="card-body">
+            <h2 class="card-title">Feature map: the htmx way vs. the SPA way</h2>
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th>In this app</th>
+                        <th>Typical Vue 3 SPA</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td class="font-medium">Live search</td>
+                        <td><code>hx-trigger="input changed delay:300ms"</code> + <code>hx-sync="…:replace"</code></td>
+                        <td>watcher + debounce util + AbortController + loading ref</td>
+                    </tr>
+                    <tr>
+                        <td class="font-medium">Sort / paginate / filter</td>
+                        <td>Server renders links with the full state; <code>hx-get</code> on each</td>
+                        <td>Pinia store, computed query params, REST endpoint, DTOs, table component</td>
+                    </tr>
+                    <tr>
+                        <td class="font-medium">Back button &amp; bookmarks</td>
+                        <td><code>hx-push-url="true"</code></td>
+                        <td>vue-router query sync, two-way watchers</td>
+                    </tr>
+                    <tr>
+                        <td class="font-medium">SPA-style navigation</td>
+                        <td><code>hx-boost="true"</code> on &lt;body&gt;</td>
+                        <td>vue-router, route components, lazy chunks</td>
+                    </tr>
+                    <tr>
+                        <td class="font-medium">Inline edit &amp; validation</td>
+                        <td>Row ⇄ editor fragments; Bean Validation errors returned as HTML (422)</td>
+                        <td>edit state per row, form library, duplicate client + server validation</td>
+                    </tr>
+                    <tr>
+                        <td class="font-medium">Concurrent edits</td>
+                        <td>JPA <code>@Version</code> / <code>WHERE version = ?</code>; 409 renders a conflict notice</td>
+                        <td>same server logic + client error mapping UI</td>
+                    </tr>
+                    <tr>
+                        <td class="font-medium">Toasts from anywhere</td>
+                        <td>Out-of-band swap: <code>hx-swap-oob="beforeend:#toasts"</code></td>
+                        <td>toast store/plugin, event bus</td>
+                    </tr>
+                    <tr>
+                        <td class="font-medium">Server tells the client to refresh</td>
+                        <td>Response header <code>HX-Trigger: employees-changed</code></td>
+                        <td>emit/refetch plumbing, cache invalidation (e.g. vue-query)</td>
+                    </tr>
+                    <tr>
+                        <td class="font-medium">Real-time updates</td>
+                        <td>SSE extension: <code>hx-trigger="sse:employee-42"</code>, <code>sse-swap="activity"</code></td>
+                        <td>WebSocket client, message schema, store patching, reconciliation</td>
+                    </tr>
+                    <tr>
+                        <td class="font-medium">Infinite scroll</td>
+                        <td><code>hx-trigger="revealed"</code> on the last row</td>
+                        <td>IntersectionObserver composable, cursor state, list append</td>
+                    </tr>
+                    <tr>
+                        <td class="font-medium">Loading states</td>
+                        <td><code>hx-indicator</code> + the <code>.htmx-request</code> CSS class</td>
+                        <td>isLoading refs per request</td>
+                    </tr>
+                    <tr>
+                        <td class="font-medium">Theming</td>
+                        <td>DaisyUI <code>theme-controller</code> (CSS) + cookie</td>
+                        <td>theme store, localStorage, class toggling</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== what's NOT here ========================================================== -->
+    <section class="grid gap-6 md:grid-cols-2">
+        <div class="card bg-base-100 shadow-sm">
+            <div class="card-body">
+                <h2 class="card-title">What you don't write</h2>
+                <ul class="list-disc pl-5 space-y-1 text-sm text-base-content/80">
+                    <li>A JSON API, DTOs, and their OpenAPI/TypeScript twins</li>
+                    <li>A client-side router, store, and the code that keeps them in sync with the server</li>
+                    <li>Validation rules twice (client + server)</li>
+                    <li>A bundler, transpiler, dev server, <code>node_modules</code> at runtime</li>
+                    <li>Hydration, loading and error state for every fetch</li>
+                    <li>Authorization checks in two places</li>
+                </ul>
+            </div>
+        </div>
+        <div class="card bg-base-100 shadow-sm">
+            <div class="card-body">
+                <h2 class="card-title">What you do write</h2>
+                <ul class="list-disc pl-5 space-y-1 text-sm text-base-content/80">
+                    <li>Controllers that return views or fragments (<code>FragmentsRendering</code> for several at once)</li>
+                    <li>Thymeleaf templates, split into fragments the server can render on their own</li>
+                    <li>Attributes: <code>hx-get</code>, <code>hx-trigger</code>, <code>hx-target</code>, <code>hx-swap</code></li>
+                    <li>A few lines of CSS for transitions (row flash, fade-out, toasts)</li>
+                    <li>An SSE hub (~150 lines) if you want real-time</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== when not to use ========================================================== -->
+    <section class="alert alert-info alert-soft items-start">
+        <span class="text-xl">💡</span>
+        <div class="text-sm">
+            <b>Where an SPA still wins:</b> heavily client-side interactions with no server round-trip, such as
+            drawing canvases, offline-first apps, or complex drag-and-drop editors. For CRUD, dashboards, admin
+            tools and line-of-business apps (most enterprise Java front ends), hypermedia covers the same ground
+            with far less code. You can also mix the two: drop a small Alpine.js or Vue island into a page where
+            it pays off.
+        </div>
+    </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,88 @@
+/*
+ * The only "frontend build" in the project: Tailwind 4 + DaisyUI 5 compile this file into
+ * target/classes/static/css/app.css. Classes are discovered by scanning the Thymeleaf templates
+ * (and the Java enums that carry badge colours).
+ */
+@import "tailwindcss" source(none);
+@source "../resources/templates";
+@source "../java";
+/* classes that only ever appear inside string concatenations */
+@source inline("alert-success alert-error alert-info alert-warning");
+
+@plugin "daisyui" {
+  themes: light --default, dark --prefersdark, corporate, nord, dim, business, cupcake, synthwave;
+}
+
+@layer components {
+  /* ---- htmx feedback ------------------------------------------------------------------ */
+
+  /* thin indeterminate bar at the top of the page while any request is in flight */
+  #global-progress {
+    @apply fixed inset-x-0 top-0 z-[60] h-0.5 opacity-0 transition-opacity duration-200 pointer-events-none;
+    background: linear-gradient(90deg, transparent, var(--color-primary), transparent);
+    background-size: 40% 100%;
+    background-repeat: no-repeat;
+    animation: progress-slide 1s linear infinite;
+  }
+  #global-progress.htmx-request { @apply opacity-100; }
+
+  /* dim the table while it reloads; the spinner overlay is an .htmx-indicator */
+  #table-container .data-table,
+  #table-container .pager { @apply transition-opacity duration-150; }
+  #table-container.htmx-request .data-table,
+  #table-container.htmx-request .pager { @apply opacity-50; }
+
+  /* a row that just changed (by you, another tab, or the simulator) glows briefly */
+  tr.row-flash > td { animation: row-flash 1.8s ease-out; }
+
+  /* deleted rows fade out during htmx's swap delay (hx-swap="outerHTML swap:400ms") */
+  tr.htmx-swapping > td { @apply opacity-0 transition-opacity duration-300; }
+
+  /* toasts slide in, then collapse away on their own — no JavaScript timers */
+  .toast-item {
+    max-height: 8rem;
+    animation: toast-in 0.25s ease-out, toast-out 0.5s ease-in 4s forwards;
+  }
+
+  /* new activity items slide in at the top of the feed */
+  .activity-item { animation: toast-in 0.3s ease-out; }
+  #activity > li.placeholder:not(:only-child) { @apply hidden; }
+  #activity > li:nth-child(n + 16) { @apply hidden; }
+
+  /* page content fades in after boosted (SPA-style) navigation */
+  main { animation: fade-in 0.2s ease-out; }
+
+  th[aria-sort="ascending"] .sort-icon,
+  th[aria-sort="descending"] .sort-icon { @apply text-primary opacity-100; }
+  .sort-icon { @apply opacity-30 text-[0.65rem]; }
+
+  .sql-block { @apply text-[0.7rem] leading-relaxed whitespace-pre-wrap break-words; }
+}
+
+/* the inline editor packs inputs into the same columns, so give them a little more room
+   (unlayered so it wins over DaisyUI's .table cell padding) */
+tr.editing > td { padding-inline: 0.375rem; }
+
+@keyframes progress-slide {
+  from { background-position: -40% 0; }
+  to { background-position: 140% 0; }
+}
+
+@keyframes row-flash {
+  from { background-color: color-mix(in oklab, var(--color-warning) 40%, transparent); }
+  to { background-color: transparent; }
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(0.5rem); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes toast-out {
+  to { opacity: 0; max-height: 0; padding-block: 0; margin: 0; border-width: 0; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0.4; }
+  to { opacity: 1; }
+}

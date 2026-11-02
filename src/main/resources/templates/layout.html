@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<!--/*
+  Site layout. Pages use it with:  <html th:replace="~{layout :: page('Title', ~{::main})}">
+
+  Everything "reactive" is declared here once:
+    hx-boost      – links and forms navigate without full page reloads (SPA-style), with history
+    hx-ext="sse"  – one Server-Sent Events connection per tab, kept open across boosted navigation
+    hx-headers    – every htmx request carries this tab's id, so the server never echoes your own change back to you
+    hx-indicator  – a global progress bar for any request that doesn't declare its own indicator
+*/-->
+<html lang="en" th:fragment="page(title, content)" th:attr="data-theme=${theme}" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${title} + ' · HypermediaJava'">HypermediaJava</title>
+    <!-- Let 409/422 responses swap (validation errors, edit conflicts) just like 200s. -->
+    <meta name="htmx-config"
+          content='{"responseHandling":[{"code":"204","swap":false},{"code":"[23]..","swap":true},{"code":"409","swap":true},{"code":"422","swap":true},{"code":"[45]..","swap":true,"error":true}],"historyCacheSize":20}'>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☕</text></svg>">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+    <script th:src="@{/webjars/htmx.org/dist/htmx.min.js}" defer></script>
+    <script th:src="@{/webjars/htmx-ext-sse/dist/sse.min.js}" defer></script>
+</head>
+<body class="min-h-screen bg-base-200 text-base-content"
+      hx-boost="true" hx-ext="sse" hx-indicator="#global-progress"
+      th:attr="sse-connect=@{/live/stream(client=${clientId})},hx-headers=${clientHeaders}">
+
+<div id="global-progress"></div>
+
+<header class="navbar bg-base-100 shadow-sm sticky top-0 z-40 px-4 gap-2">
+    <div class="navbar-start gap-1">
+        <div class="dropdown lg:hidden">
+            <div tabindex="0" role="button" class="btn btn-ghost btn-sm" aria-label="Open menu">☰</div>
+            <ul tabindex="0" class="menu menu-sm dropdown-content bg-base-100 rounded-box z-50 mt-3 w-56 p-2 shadow-lg">
+                <li><a href="/">Dashboard</a></li>
+                <li><a href="/jdbc/employees">Table · JDBC</a></li>
+                <li><a href="/jpa/employees">Table · JPA</a></li>
+                <li><a href="/jdbc/feed">Infinite scroll</a></li>
+                <li><a href="/how-it-works">How it works</a></li>
+            </ul>
+        </div>
+        <a href="/" class="btn btn-ghost text-lg font-bold gap-1 px-2">
+            <span>☕</span><span>Hypermedia<span class="text-primary">Java</span></span>
+        </a>
+    </div>
+
+    <nav class="navbar-center hidden lg:flex">
+        <ul class="menu menu-horizontal menu-sm gap-1">
+            <li><a href="/" th:classappend="${currentPath == '/'} ? 'menu-active'">Dashboard</a></li>
+            <li><a href="/jdbc/employees" th:classappend="${#strings.startsWith(currentPath, '/jdbc/employees')} ? 'menu-active'">Table · JDBC</a></li>
+            <li><a href="/jpa/employees" th:classappend="${#strings.startsWith(currentPath, '/jpa/employees')} ? 'menu-active'">Table · JPA</a></li>
+            <li><a href="/jdbc/feed" th:classappend="${#strings.endsWith(currentPath, '/feed')} ? 'menu-active'">Infinite scroll</a></li>
+            <li><a href="/how-it-works" th:classappend="${currentPath == '/how-it-works'} ? 'menu-active'">How it works</a></li>
+        </ul>
+    </nav>
+
+    <div class="navbar-end gap-2">
+        <div class="badge badge-ghost gap-2 py-3 cursor-help"
+             th:title="|You are ${clientName}. Open another tab to see live updates.|">
+            <span class="status status-success animate-pulse"></span>
+            <!-- the server pushes the new number over SSE whenever a tab connects or disconnects -->
+            <span sse-swap="viewers" th:text="${viewers}">1</span>
+            <span class="hidden sm:inline">online</span>
+        </div>
+
+        <!-- DaisyUI theme-controller flips the theme in pure CSS; htmx just persists the choice in a cookie -->
+        <div class="dropdown dropdown-end">
+            <div tabindex="0" role="button" class="btn btn-ghost btn-sm">🎨<span class="hidden sm:inline">Theme</span></div>
+            <ul tabindex="0" class="dropdown-content bg-base-100 rounded-box z-50 mt-3 w-44 p-2 shadow-lg">
+                <li th:each="t : ${themes}">
+                    <input type="radio" name="theme" class="theme-controller btn btn-sm btn-block btn-ghost justify-start capitalize"
+                           th:value="${t}" th:attr="aria-label=${t}" th:checked="${t == theme}"
+                           hx-post="/prefs/theme" hx-trigger="change" hx-swap="none">
+                </li>
+            </ul>
+        </div>
+    </div>
+</header>
+
+<main th:replace="${content}">page content</main>
+
+<footer class="text-center text-base-content/60 text-xs p-6">
+    <p>
+        Spring Boot · Thymeleaf · htmx · Tailwind CSS · DaisyUI —
+        <span class="font-semibold">0 lines of application JavaScript</span> (plus 4 one-line <code>hx-on</code> handlers).
+    </p>
+</footer>
+
+<!-- out-of-band targets: the server can drop toasts or a modal here from any response -->
+<div id="toasts" class="toast toast-end toast-bottom z-50" aria-live="polite"></div>
+<div id="modal"></div>
+</body>
+</html>

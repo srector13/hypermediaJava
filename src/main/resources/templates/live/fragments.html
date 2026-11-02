@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<!--/* Rendered outside of any HTTP request and pushed to browsers over SSE (see LiveHub). */-->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<li th:fragment="activity-item" class="activity-item flex gap-3 items-start py-2">
+    <span class="status status-lg mt-1.5 shrink-0" th:classappend="${a.color()}"></span>
+    <div class="text-sm leading-snug min-w-0">
+        <b th:text="${a.actor}">Swift Otter</b> <span th:text="${a.message}">updated Ada</span>
+        <div class="text-xs opacity-60 flex gap-2 items-center">
+            <span class="tabular-nums" th:text="${#temporals.format(a.at, 'HH:mm:ss')}">12:00:00</span>
+            <span th:if="${a.engine != null}" class="badge badge-xs badge-ghost" th:text="|via ${a.engine.label()}|">via JDBC</span>
+        </div>
+    </div>
+</li>
+
+<button th:fragment="simulator-toggle" id="sim-toggle" type="button" class="btn btn-sm"
+        th:classappend="${running} ? 'btn-error' : 'btn-secondary'"
+        hx-post="/live/simulator" hx-target="this" hx-swap="outerHTML">
+    <span th:if="${running}" class="loading loading-ring loading-xs"></span>
+    <span th:text="${running} ? 'Stop simulator' : '▶ Start simulator'">▶ Start simulator</span>
+</button>
+
+</body>
+</html>

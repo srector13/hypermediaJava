@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html th:replace="~{layout :: page(|Employees · ${engine.label()}|, ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<body>
+<main class="max-w-[96rem] mx-auto px-4 py-6">
+
+    <!-- ===== heading + engine switch ================================================== -->
+    <div class="flex flex-wrap items-end justify-between gap-4 mb-5">
+        <div>
+            <h1 class="text-3xl font-bold flex items-center gap-3">
+                Employees
+                <span class="badge badge-lg" th:classappend="${engine.name() == 'JDBC'} ? 'badge-primary' : 'badge-secondary'"
+                      th:text="${engine.label()}">JDBC</span>
+            </h1>
+            <p class="text-base-content/70 mt-1" th:text="${engine.technique()}">technique</p>
+        </div>
+        <!-- Same query, other engine: the server builds the link, so filters/sort/page carry over. -->
+        <div role="tablist" class="tabs tabs-box tabs-sm">
+            <a role="tab" class="tab" th:each="eng : ${T(dev.hypermediajava.employee.Engine).values()}"
+               th:href="${query.url(eng)}" th:text="${eng.label()}"
+               th:classappend="${eng == engine} ? 'tab-active'">JDBC</a>
+        </div>
+    </div>
+
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <section class="card bg-base-100 shadow-sm min-w-0">
+            <div class="card-body p-4 gap-4">
+
+                <!-- ===== toolbar: every control re-renders just the table and updates the URL ===== -->
+                <form id="filters" class="flex flex-wrap items-center gap-2" role="search"
+                      th:action="@{/{e}/employees(e=${engine.path()})}" method="get"
+                      th:hx-get="@{/{e}/employees(e=${engine.path()})}"
+                      hx-target="#table-container" hx-swap="innerHTML" hx-push-url="true" hx-include="#filters"
+                      hx-indicator="#table-container, #global-progress" hx-sync="#filters:replace">
+
+                    <label class="input input-sm grow min-w-56 max-w-md">
+                        <span class="opacity-50">⌕</span>
+                        <input type="search" name="q" th:value="${query.q}" autocomplete="off"
+                               placeholder="Search name, email, title or city…" aria-label="Search employees"
+                               th:hx-get="@{/{e}/employees(e=${engine.path()})}"
+                               hx-trigger="input changed delay:300ms, search">
+                        <kbd class="kbd kbd-xs hidden md:inline">debounced</kbd>
+                    </label>
+
+                    <select name="department" class="select select-sm w-44" aria-label="Department"
+                            th:hx-get="@{/{e}/employees(e=${engine.path()})}">
+                        <option value="">All departments</option>
+                        <option th:each="d : ${departments}" th:value="${d}" th:text="${d.label()}"
+                                th:selected="${d == query.department}">Engineering</option>
+                    </select>
+
+                    <select name="status" class="select select-sm w-36" aria-label="Status"
+                            th:hx-get="@{/{e}/employees(e=${engine.path()})}">
+                        <option value="">Any status</option>
+                        <option th:each="s : ${statuses}" th:value="${s}" th:text="${s.label()}"
+                                th:selected="${s == query.status}">Active</option>
+                    </select>
+
+                    <select name="size" class="select select-sm w-28" aria-label="Rows per page"
+                            th:hx-get="@{/{e}/employees(e=${engine.path()})}">
+                        <option th:each="n : ${pageSizes}" th:value="${n}" th:text="|${n} / page|"
+                                th:selected="${n == query.size}">25 / page</option>
+                    </select>
+
+                    <a class="btn btn-ghost btn-sm" th:href="@{/{e}/employees(e=${engine.path()})}">Reset</a>
+
+                    <button type="button" class="btn btn-primary btn-sm ml-auto"
+                            th:hx-get="@{/{e}/employees/new(e=${engine.path()})}"
+                            hx-target="#modal" hx-swap="innerHTML" hx-push-url="false" hx-indicator="#global-progress">
+                        + New employee
+                    </button>
+                </form>
+
+                <!-- ===== bulk actions: hx-include picks up whichever row checkboxes are ticked ===== -->
+                <div class="flex flex-wrap items-center gap-2 text-sm">
+                    <span class="opacity-60">With selected:</span>
+                    <button type="button" class="btn btn-xs btn-outline btn-success"
+                            th:hx-post="@{/{e}/employees/bulk/raise(e=${engine.path()},percent=5)}"
+                            hx-include="#table-container [name=ids]:checked" hx-swap="none">
+                        +5% raise
+                    </button>
+                    <button type="button" class="btn btn-xs btn-outline btn-error"
+                            th:hx-post="@{/{e}/employees/bulk/delete(e=${engine.path()})}"
+                            hx-include="#table-container [name=ids]:checked" hx-swap="none"
+                            hx-confirm="Delete all selected employees?">
+                        Delete
+                    </button>
+                    <span class="ml-auto text-xs opacity-60 hidden md:inline">
+                        Tip: <kbd class="kbd kbd-xs">←</kbd> <kbd class="kbd kbd-xs">→</kbd> change page
+                    </span>
+                </div>
+
+                <!-- ===== the table. Its content is the only thing most interactions replace. ===== -->
+                <div id="table-container" class="relative" th:insert="~{employees/fragments :: table}"></div>
+
+                <!-- Invisible "refresher": re-fetches the table (with current filters and page) when
+                     - this tab created/bulk-changed rows  -> HX-Trigger: employees-changed (response header)
+                     - ANOTHER tab did                     -> sse:employees-changed (server push)
+                     ...unless you're in the middle of editing a row. -->
+                <div hidden aria-hidden="true"
+                     th:hx-get="@{/{e}/employees(e=${engine.path()})}"
+                     hx-include="#filters, #current-page" hx-target="#table-container" hx-swap="innerHTML"
+                     hx-trigger="employees-changed from:body, sse:employees-changed[!document.querySelector('tr.editing')]"></div>
+            </div>
+        </section>
+
+        <aside class="flex flex-col gap-6 min-w-0">
+            <div th:replace="~{employees/fragments :: inspector(false)}"></div>
+
+            <div class="card bg-base-100 shadow-sm">
+                <div class="card-body p-4 text-sm gap-2">
+                    <h2 class="card-title text-base">Try this</h2>
+                    <ul class="list-disc pl-5 space-y-1 text-base-content/80">
+                        <li>Type in search — results update as you type (debounced, stale requests cancelled).</li>
+                        <li>Click column headers, pages, the size picker. Then use the browser's <b>Back</b> button.</li>
+                        <li>Click ✎ to edit inline. <kbd class="kbd kbd-xs">Enter</kbd> saves, <kbd class="kbd kbd-xs">Esc</kbd> cancels.</li>
+                        <li>Open this page in a <b>second tab</b> and edit a row — it flashes in the other tab.</li>
+                        <li>Switch the tab above to <span th:text="${engine.other().label()}">JPA</span>: same UI, different data access.</li>
+                    </ul>
+                </div>
+            </div>
+        </aside>
+    </div>
+</main>
+</body>
+</html>

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--/* A toast that can ride along with ANY response. The <template> wrapper lets it sit next to <tr>
+       content without breaking HTML parsing; htmx finds the hx-swap-oob inside and appends it to #toasts. */-->
+<template th:fragment="toast">
+    <div hx-swap-oob="beforeend:#toasts">
+        <div th:replace="~{fragments/ui :: toast-content}"></div>
+    </div>
+</template>
+
+<div th:fragment="toast-content" role="status" class="alert alert-soft shadow-lg toast-item py-2"
+     th:classappend="|alert-${kind}|">
+    <span th:switch="${kind}">
+        <span th:case="'success'">✓</span>
+        <span th:case="'error'">⚠</span>
+        <span th:case="'warning'">⚠</span>
+        <span th:case="*">ℹ</span>
+    </span>
+    <span th:text="${message}">Saved</span>
+</div>
+
+</body>
+</html>
